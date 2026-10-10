@@ -6,7 +6,7 @@ Esta carpeta contiene las writeups de las máquinas de Windows con dificultad **
 
 | Máquina | Estado | Writeup |
 |---------|--------|---------|
-| [Touch](Touch/) | ✅ Completada | [Ver writeup](Touch/README.md) |
+| [Touch](Touch/README.md) | ✅ Completada | [Ver writeup](Touch/README.md) |
 
 ---
 
