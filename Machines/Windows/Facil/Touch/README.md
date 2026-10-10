@@ -243,8 +243,7 @@ whoami; hostname; type C:\Users\Kios****\Desktop\user.txt
 ![Lectura de user.txt](screenshots/06_02_user_flag.png)
 *Fig. 6.2 — `type C:\Users\Kios****\Desktop\user.txt` mostrando la flag de usuario. **Qué debe verificar el auditor:** el prompt `C:\Users\Kios****\Downloads>` y que la ubicación de la flag corresponde al `user.txt` de la instancia activa. El valor de la flag aparece **enmascarado en el texto y redactado (censurado) en la captura** para esta versión pública.*
 
-![Sesión reverse shell de PowerShell](screenshots/06_03_reverse_shell_ps.png)
-*Fig. 6.3 — Consola de la reverse shell de PowerShell recibida por el atacante, en el contexto de `Kios****`.*
+La consola interactiva del shell en el lado del atacante (`nc -lvnp 9001`) se conservó como **transcripción textual** de la sesión (comandos y salidas íntegras, incluida la lectura de `user.txt`); las capturas gráficas de la consola del kiosco son las Figs. 6.1–6.2.
 
 ---
 
@@ -338,7 +337,10 @@ Get-Item "C:\MySQL\lib\plugin\lib_mysqludf_sys.dll" | fl Length
 # nt authority\system        <-- privesc confirmado
 ```
 
-> **[CAPTURA PENDIENTE] Privesc a SYSTEM.** No se conservó una captura de pantalla dedicada de la salida `SELECT sys_eval('whoami')` (`nt authority\system`). La prueba de este paso queda respaldada por la transcripción de la consola (salida mostrada arriba). Si se desea evidencia gráfica, capturar la consola con esa salida y referenciarla aquí como `screenshots/08_01_sys_eval_system.png`.
+**Evidencia visual:**
+
+![Prueba de ejecución del UDF sys_eval en la consola del objetivo](screenshots/08_01_sys_eval_ejecucion.png)
+*Fig. 8.1 — Consola PowerShell del kiosco (`...\Downloads\cmd.exe - powershell`) ejecutando `mysql.exe` con una prueba de la función UDF: la llamada a `sys_eval` devuelve `ok`, confirmando que la DLL depositada en `C:\MySQL\lib\plugin` ejecuta código en el host. La captura se conserva íntegra: la porción inferior muestra un intento posterior fallido de relanzar el payload de la reverse shell, documentado en el Anexo A. La confirmación `SELECT sys_eval('whoami')` → `nt authority\system` del bloque anterior consta en la transcripción de la consola de post-explotación (listener `nc` del atacante); esa salida concreta no llegó a capturarse gráficamente y el objetivo ya está desactivado.*
 
 ---
 
@@ -373,7 +375,7 @@ Resultado: `C:UsersAdministratorDesktop␍oot.txt` → comando inválido → sal
 
 **Root flag:** `52c311d2****`
 
-> **[CAPTURA PENDIENTE] `root.txt`.** La lectura de la flag de root se realizó con `sys_eval('type C:\Users\Administrator\Desktop\root.txt')` (bloque anterior). Añadir aquí la captura de esa salida como `screenshots/09_01_root_flag.png` si se desea verificación gráfica.
+> **Nota de evidencia.** La lectura de `root.txt` se ejecutó en la misma sesión interactiva de post-explotación (listener `nc` del atacante) que el privesc de la sección 8: la salida `52c311d2****` del bloque anterior procede de la transcripción de esa consola en vivo. La ventana del listener del atacante no se capturó gráficamente y el objetivo ya está desactivado para regenerarla; los comandos y salidas íntegros de esa sesión se conservan en la transcripción citada en la sección 6.
 
 ---
 
@@ -393,7 +395,7 @@ Resultado: `C:UsersAdministratorDesktop␍oot.txt` → comando inválido → sal
 
 ---
 
-## Anexo A — Intentos fallidos y por qué (para auditoría)
+## Anexo A — Intentos fallidos y por qué
 
 Documentar lo que **no** funcionó es tan importante como lo que funcionó: explica la ruta elegida.
 
