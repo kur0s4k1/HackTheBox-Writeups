@@ -8,7 +8,7 @@
 - `user.txt` → `1416fd69****`
 - `root.txt` → `52c311d2****`
 
-> **Evidencias visuales.** Las capturas citadas en este documento se entregan en la carpeta **`screenshots/`** que acompaña al writeup. Cada paso relevante incluye una imagen en la forma `![descripción](screenshots/NN_nombre.png)` seguida de una **leyenda** que indica **qué evidencia aporta** y **qué debe comprobar el auditor** (que la sesión RDP es real, que los diálogos son del objetivo, que la salida de comandos es auténtica, etc.). Todas las capturas provienen de la ejecución real (cliente RDP y consola de post-explotación); no son reconstrucciones.
+> **Evidencias visuales.** Las capturas citadas en este documento se entregan en la carpeta **`screenshots/`** que acompaña al writeup. Cada paso relevante incluye una imagen en la forma `![descripción](screenshots/NN_nombre.png)` seguida de una **leyenda** que indica **qué evidencia aporta** y **qué pista de la metodología aporta cada captura** (por ejemplo, que la sesión RDP es real, que los diálogos son del objetivo o que la salida de comandos es auténtica). Todas las capturas provienen de la ejecución real (cliente RDP y consola de post-explotación); no son reconstrucciones.
 >
 > **Sobre flags y credenciales (versión pública).** HTB genera `user.txt`/`root.txt` **por instancia**: el valor válido es el del despliegue activo en el momento de la explotación. Por política de divulgación responsable, en esta versión pública **las flags, contraseñas, serial y nombre de usuario han sido enmascarados** en el texto (p. ej. `1416fd69****`, `K!0sk****`, `NX-DH-****-****`) y **redactados en las capturas** correspondientes. Los enmascaramientos son deliberados y no afectan a la reproducibilidad del procedimiento.
 
@@ -139,7 +139,7 @@ Login **correcto**: sesión gráfica como `Kios****`. Queda demostrado que la co
 **Evidencia visual — sesión RDP real:**
 
 ![Sesión RDP interactiva como Kios****](screenshots/04_01_rdp_kiosco_principal.png)
-*Fig. 4.1 — Escritorio del kiosco tras autenticarse por RDP. En la parte superior se ve la aplicación de kiosco "HTB AIRWAYS" (Terminal 4 · Gate 87 · Kiosk #042 · System Online) con los flujos **SELF CHECK-IN** y **STAFF LOGIN**. **Qué debe verificar el auditor:** que es una sesión gráfica interactiva genuina de Windows (no una mera validación de credenciales), confirmada por la ventana del cliente RDP y el entorno de escritorio del objetivo.*
+*Fig. 4.1 — Escritorio del kiosco tras autenticarse por RDP. En la parte superior se ve la aplicación de kiosco "HTB AIRWAYS" (Terminal 4 · Gate 87 · Kiosk #042 · System Online) con los flujos **SELF CHECK-IN** y **STAFF LOGIN**. **Pista:** que es una sesión gráfica interactiva genuina de Windows (no una mera validación de credenciales), confirmada por la ventana del cliente RDP y el entorno de escritorio del objetivo.*
 
 ![Pantalla Self Check-In](screenshots/04_02_self_checkin.png)
 *Fig. 4.2 — Flujo "SELF CHECK-IN" del kiosco: contexto del funcionamiento legítimo antes de forzar el error de la etapa 5.*
@@ -177,7 +177,7 @@ Esta es la técnica canónica de escape: *provocar error → el handler lanza un
 *Fig. 5.2 — Tras apagar el Passport Scanner por API (DeviceHub), el paso de escaneo falla: aparece "Scanner offline / TRY AGAIN". La ausencia del dispositivo obliga a la aplicación a pasar por su manejo de errores.*
 
 ![Paso 3 — Diálogo de error SR-4200 con enlace de soporte](screenshots/05_03_dialogo_error_sr4200.png)
-*Fig. 5.3 — Diálogo de error del kiosco: "Nexion DocReader SR-4200 has stopped responding — Error Code: SCN-ERR-4092 — Device: NX-SR-2024-0042". **Qué debe verificar el auditor:** el **enlace `https://support.nexionsystems.com/...`** en el texto del error; es el punto de fuga hacia el navegador.*
+*Fig. 5.3 — Diálogo de error del kiosco: "Nexion DocReader SR-4200 has stopped responding — Error Code: SCN-ERR-4092 — Device: NX-SR-2024-0042". **Pista:** el **enlace `https://support.nexionsystems.com/...`** en el texto del error; es el punto de fuga hacia el navegador.*
 
 ![Paso 4 — Edge abierto por el enlace de soporte](screenshots/05_04_edge_soporte.png)
 *Fig. 5.4 — Al pulsar el enlace del diálogo se abre **Microsoft Edge** apuntando a `support.nexionsystems.com/docreader/troubleshoot`. El navegador completo es la puerta lateral que rompe el aislamiento del kiosco.*
@@ -186,14 +186,13 @@ Esta es la técnica canónica de escape: *provocar error → el handler lanza un
 *Fig. 5.5 — `Ctrl+O` en Edge abre el **diálogo nativo de archivos de Windows** (un Explorer completo, con Desktop/Documents/Downloads, etc.). Aquí es donde muere el confinamiento del kiosco.*
 
 ![Paso 6 — Selección de cmd.exe en el diálogo nativo](screenshots/05_06_open_dialog_cmd.png)
-*Fig. 5.6 — En el diálogo nativo se navega al sistema de archivos y se selecciona un ejecutable (p. ej. `cmd.exe`). **Qué debe verificar el auditor:** que el diálogo es el de Windows (no un componente web), lo que permite alcanzar binarios del sistema.*
+*Fig. 5.6 — En el diálogo nativo se navega al sistema de archivos y se selecciona un ejecutable (p. ej. `cmd.exe`). **Pista:** que el diálogo es el de Windows (no un componente web), lo que permite alcanzar binarios del sistema.*
 
 ![Paso 6 — Edge trata cmd.exe como descarga: barra "Open file"](screenshots/05_07_edge_barra_open_file.png)
 *Fig. 5.7 — Edge interpreta `C:\Windows\System32\cmd.exe` como una descarga y muestra la barra "cmd.exe — Open file"; al pulsarla se lanza el proceso.*
 
 ![Paso 6 — Command Prompt interactivo en la sesión del kiosco](screenshots/05_08_cmd_interactivo.png)
-*Fig. 5.8 — **Command Prompt** en ejecución dentro de la sesión del kiosco (`C:\Users\Kios****\Downloads\cmd.exe`). **Qué debe verificar el auditor:** la ventana `cmd.exe` reaón del kiosco](screenshots/05_08_cmd_interactivo.png)
-*Fig. 5.8 — **Command Prompt** en ejecución dentro de la sesión del kiosco (`C:\Users\Kios****\Downloads\cmd.exe`). **Qué debe verificar el auditor:** la ventana `cmd.exe` real y su prompt, prueba de ejecución de código arbitrario en el objetivo.*
+*Fig. 5.8 — **Command Prompt** en ejecución dentro de la sesión del kiosco (`C:\Users\Kios****\Downloads\cmd.exe`). **Pista:** la ventana `cmd.exe` real y su prompt, prueba de ejecución de código arbitrario en el objetivo.*
 
 ---
 
@@ -241,7 +240,7 @@ whoami; hostname; type C:\Users\Kios****\Desktop\user.txt
 *Fig. 6.1 — `whoami` devuelve `kiosk-042\kios****`: confirmación del usuario efectivo del shell, en una consola `cmd.exe` sobre la sesión RDP.*
 
 ![Lectura de user.txt](screenshots/06_02_user_flag.png)
-*Fig. 6.2 — `type C:\Users\Kios****\Desktop\user.txt` mostrando la flag de usuario. **Qué debe verificar el auditor:** el prompt `C:\Users\Kios****\Downloads>` y que la ubicación de la flag corresponde al `user.txt` de la instancia activa. El valor de la flag aparece **enmascarado en el texto y redactado (censurado) en la captura** para esta versión pública.*
+*Fig. 6.2 — `type C:\Users\Kios****\Desktop\user.txt` mostrando la flag de usuario. **Pista:** el prompt `C:\Users\Kios****\Downloads>` y que la ubicación de la flag corresponde al `user.txt` de la instancia activa. El valor de la flag aparece **enmascarado en el texto y redactado (censurado) en la captura** para esta versión pública.*
 
 La consola interactiva del shell en el lado del atacante (`nc -lvnp 9001`) se conservó como **transcripción textual** de la sesión (comandos y salidas íntegras, incluida la lectura de `user.txt`); las capturas gráficas de la consola del kiosco son las Figs. 6.1–6.2.
 
@@ -265,7 +264,7 @@ C:\MySQL\bin\mysql.exe -u root -pHTB@i**** < "C:\ProgramData\HTB Airways\refresh
 ```
 
 ![Contenido de refresh-dates.bat con credenciales de MySQL](screenshots/07_01_refresh_dates_bat.png)
-*Fig. 7.1 — Volcado de `C:\ProgramData\HTB Airways\refresh-dates.bat`. **Qué debe verificar el auditor:** la presencia de la credencial de MySQL `root` en texto claro (`-u root -pHTB@i****`), origen de la escalada de la etapa 8. La contraseña fue **redactada (censurada) también en la captura** para esta versión pública.*
+*Fig. 7.1 — Volcado de `C:\ProgramData\HTB Airways\refresh-dates.bat`. **Pista:** la presencia de la credencial de MySQL `root` en texto claro (`-u root -pHTB@i****`), origen de la escalada de la etapa 8. La contraseña fue **redactada (censurada) también en la captura** para esta versión pública.*
 
 **Contexto del servicio (clave para el privesc):**
 

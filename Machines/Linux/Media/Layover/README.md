@@ -9,7 +9,7 @@
 - `user.txt` → `b6930da5****`
 - `root.txt` → `1b5b147e****`
 
-> **Evidencias visuales.** Las capturas citadas en este documento se entregan en la carpeta **`screenshots/`** que acompaña al writeup. Cada paso relevante incluye una imagen en la forma `![descripción](screenshots/NN_nombre.png)` seguida de una **leyenda** que indica **qué evidencia aporta** y **qué debe comprobar el auditor** (que la sesión RDP es real, que los diálogos y la salida de comandos son del objetivo, que la captura de tráfico proviene del segmento Wi-Fi interno, etc.). Todas las capturas provienen de la ejecución real (cliente RDP sobre `airside-ws01` y consola de post-explotación); no son reconstrucciones.
+> **Evidencias visuales.** Las capturas citadas en este documento se entregan en la carpeta **`screenshots/`** que acompaña al writeup. Cada paso relevante incluye una imagen en la forma `![descripción](screenshots/NN_nombre.png)` seguida de una **leyenda** que indica **qué evidencia aporta** y **qué pista de la metodología aporta cada captura** (por ejemplo, que el acceso es una sesión RDP real, que la salida de comandos es del objetivo o que la captura de tráfico proviene del segmento Wi-Fi interno). Todas las capturas provienen de la ejecución real (cliente RDP sobre `airside-ws01` y consola de post-explotación); no son reconstrucciones.
 >
 > **Sobre flags y credenciales (versión pública).** HTB genera `user.txt`/`root.txt` **por instancia**: el valor válido es el del despliegue activo en el momento de la explotación. Por política de divulgación responsable, en esta versión pública **las flags y las contraseñas/claves han sido enmascaradas** en el texto (p. ej. `b6930da5****`, `Contractor****`, `Fl1ght****`, `Skyp0rt****`, `CraftDB_pw_****`) y **redactadas en las capturas** donde aparecen. Los enmascaramientos son deliberados y no afectan a la reproducibilidad del procedimiento.
 
@@ -82,7 +82,7 @@ Dos hechos relevantes para la cadena:
 *Fig. 2.2 — Terminal de la sesión XFCE. Todas las acciones contra la red interna se ejecutan desde este host, que es el único con visibilidad a `10.13.37.0/24`.*
 
 ![Privilegios sudo de contractor](screenshots/01_03_sudo_grupos.png)
-*Fig. 2.3 — Comprobación de `sudo -l`: el usuario `contractor` pertenece a `sudo`. El auditor debe verificar que el privilegio es local a `airside-ws01` y no al objetivo final.*
+*Fig. 2.3 — Comprobación de `sudo -l`: el usuario `contractor` pertenece a `sudo`. Pista clave: el privilegio es local a `airside-ws01`, no al objetivo final; sirve para reconocer este host como punto de paso y no el objetivo.*
 
 ![Grupo wireshark y capacidades de red](screenshots/01_04_root_y_red.png)
 *Fig. 2.4 — Pertenencia al grupo `wireshark` (captura de tráfico sin privilegios) y reconocimiento de red. Es el habilitador directo de la captura de credenciales en claro.*
@@ -121,7 +121,7 @@ getent hosts portal.international.htb
 *Fig. 3.2 — Doble conexión: interfaz de gestión y `wlan2` en `10.13.37.182/24`. Evidencia de que el host de paso está en dos redes (segmentación insuficiente).*
 
 ![Resultado de la conexión Wi-Fi](screenshots/02_03_wifi_resultado.png)
-*Fig. 3.3 — Estado de la conexión inalámbrica tras asociar a la red interna. El auditor debe comprobar la IP `10.13.37.182` asignada por DHCP.*
+*Fig. 3.3 — Estado de la conexión inalámbrica tras asociar a la red interna. Pista: la IP `10.13.37.182` asignada por DHCP confirma que el host ya está dentro de la red `10.13.37.0/24`.*
 
 ![Configuración Wi-Fi del host](screenshots/02_04_wifi_config.png)
 *Fig. 3.4 — Configuración de `wlan2` y su pertenencia a la red `10.13.37.0/24`.*
@@ -201,7 +201,7 @@ La sesión autenticada corresponde al miembro **Jenny Crawford**; la credencial 
 *Fig. 5.1 — Comprobación de que la interfaz admite modo monitor: `iw list`/`iwconfig` sin `sudo`, gracias al grupo `wireshark`. Habilita la captura en el segmento inalámbrico.*
 
 ![Inicio del modo monitor](screenshots/04_02_monitor_inicio.png)
-*Fig. 5.2 — Paso de `wlan2` a modo monitor. El auditor debe verificar que la interfaz queda en estado `monitor`.*
+*Fig. 5.2 — Paso de `wlan2` a modo monitor; la interfaz queda en estado `monitor`, condición necesaria para observar el tráfico de otros clientes de la red.*
 
 ![Monitorización activa](screenshots/04_03_monitor_activo.png)
 *Fig. 5.3 — Interfaz en modo monitor escuchando el canal de la red interna. Sin este modo no se observaría el tráfico de otros clientes Wi-Fi.*
@@ -213,7 +213,7 @@ La sesión autenticada corresponde al miembro **Jenny Crawford**; la credencial 
 *Fig. 5.5 — `tshark` filtrando `http.request.method == POST`: aparece el frame 296 origen `10.13.37.132` → destino `10.13.37.10`, URI `/miles/login.php`. Evidencia de la transmisión en claro de la autenticación.*
 
 ![Comprobación del POST de personal](screenshots/04_06_staff_post_check.png)
-*Fig. 5.6 — Extracción del cuerpo del POST y del host/URI. El auditor debe comprobar que el tráfico pertenece al portal interno y no a una simulación.*
+*Fig. 5.6 — Extracción del cuerpo del POST y del host/URI; el tráfico pertenece al portal interno `portal.international.htb`.*
 
 ![Forma del cuerpo del POST](screenshots/04_07_body_shape.png)
 *Fig. 5.7 — Parseo del cuerpo `application/x-www-form-urlencoded`: dos campos (`username`, `password`). La estructura del formulario queda confirmada.*
@@ -276,7 +276,7 @@ curl -s "http://portal.international.htb/assets/shell.php?cmd=id"
 *Fig. 6.1 — Reproducción del `POST` capturado contra `/miles/login.php` con `curl`. Evidencia de que la credencial es reutilizable y de que se obtiene sesión.*
 
 ![Resultado del login reproduccido](screenshots/05_02_login_resultado.png)
-*Fig. 6.2 — Respuesta `200` con el título de sesión del miembro. El auditor debe comprobar el `Set-Cookie` resultante.*
+*Fig. 6.2 — Respuesta `200` con el título de sesión del miembro; el `Set-Cookie` resultante confirma la sesión iniciada.*
 
 ![Mapa de la página de autenticación](screenshots/05_03_mapa_auth.png)
 *Fig. 6.3 — Reconocimiento del formulario/endpoint de autenticación (tokens CSRF) necesario para el login automatizado.*
@@ -348,7 +348,7 @@ sshpass -p 'Skyp0rt****' ssh -o StrictHostKeyChecking=no aporter@10.13.37.10 \
 *Fig. 9.1 — Preparación del pivote SSH desde el host de paso hacia `10.13.37.10` (cliente, claves y herramientas presentes).*
 
 ![Verificación de host keys SSH](screenshots/06_04_ssh_hostkeys.png)
-*Fig. 9.2 — Diagnóstico de conexión/`known_hosts` durante el pivote. El auditor debe comprobar que el destino es el portal interno y que la autenticación usa la credencial recuperada.*
+*Fig. 9.2 — Diagnóstico de conexión/`known_hosts` durante el pivote; el destino es el portal interno y la autenticación usa la credencial recuperada.*
 
 **`user.txt` = `b6930da5****`**
 

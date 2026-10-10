@@ -1,6 +1,6 @@
 # HackTheBox — Writeups
 
-Repositorio personal de writeups de HackTheBox, con formato orientado a auditoría: procedimiento paso a paso, comandos ejecutados, decisiones, intentos fallidos y evidencia visual verificable.
+Repositorio personal de writeups de HackTheBox, enfocado en la metodología: procedimiento paso a paso, comandos ejecutados, decisiones, pistas que llevan a cada hallazgo, intentos fallidos y evidencia visual.
 
 **Máquinas documentadas: 2**
 
