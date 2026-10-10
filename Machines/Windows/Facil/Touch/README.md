@@ -136,7 +136,7 @@ xfreerdp3 /v:10.129.163.145 /u:Kios**** /p:'K!0sk****' /cert:ignore /dynamic-res
 
 Login **correcto**: sesión gráfica como `Kios****`. Queda demostrado que la contraseña era válida y que el rechazo de WinRM era una restricción de ese servicio.
 
-**Evidencia visual — sesión RDP real (colocar aquí):**
+**Evidencia visual — sesión RDP real:**
 
 ![Sesión RDP interactiva como Kios****](screenshots/04_01_rdp_kiosco_principal.png)
 *Fig. 4.1 — Escritorio del kiosco tras autenticarse por RDP. En la parte superior se ve la aplicación de kiosco "HTB AIRWAYS" (Terminal 4 · Gate 87 · Kiosk #042 · System Online) con los flujos **SELF CHECK-IN** y **STAFF LOGIN**. **Qué debe verificar el auditor:** que es una sesión gráfica interactiva genuina de Windows (no una mera validación de credenciales), confirmada por la ventana del cliente RDP y el entorno de escritorio del objetivo.*
@@ -168,7 +168,7 @@ Pasos ejecutados:
 
 Esta es la técnica canónica de escape: *provocar error → el handler lanza un navegador completo → el diálogo nativo de archivos es una puerta trasera al sistema de archivos → ejecutar `cmd.exe`*.
 
-**Secuencia de evidencias visuales del breakout (colocar en este orden, una por paso):**
+**Secuencia de evidencias visuales del breakout:**
 
 ![Paso 2 — Staff login: SCAN BADGE](screenshots/05_01_staff_scan_badge.png)
 *Fig. 5.1 — "Staff Authentication — Place your staff badge face-down on the scanner / SCAN BADGE". Es el paso que exige hardware físico y que no puede completarse de forma legítima.*
@@ -235,7 +235,7 @@ whoami; hostname; type C:\Users\Kios****\Desktop\user.txt
 # 1416fd69****
 ```
 
-**Evidencia visual (colocar aquí):**
+**Evidencia visual:**
 
 ![whoami en el objetivo](screenshots/06_01_whoami_user.png)
 *Fig. 6.1 — `whoami` devuelve `kiosk-042\kios****`: confirmación del usuario efectivo del shell, en una consola `cmd.exe` sobre la sesión RDP.*
