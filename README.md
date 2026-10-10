@@ -20,6 +20,9 @@
 [![Metodología](https://img.shields.io/badge/enfoque-metodolog%C3%ADa%20%2B%20pistas-2159D6?style=for-the-badge&logo=target&logoColor=white)](#-c%C3%B3mo-est%C3%A1-escrito-cada-writeup)
 [![Visitas](https://komarev.com/ghpvc/?username=kur0s4k1&label=visitas&color=F7931E&style=flat-square)](https://github.com/kur0s4k1)
 
+<!-- Terminal animada (SVG propio, sin dependencias externas) -->
+<img src="assets/terminal-animation.svg" alt="Terminal animada: del reconocimiento a root" width="100%" />
+
 <!-- Snake sobre la grilla de contribuciones (generado por GitHub Actions en la rama `output`) -->
 <img src="https://raw.githubusercontent.com/kur0s4k1/HackTheBox-Writeups/output/github-contribution-grid-snake.svg" alt="snake animation" width="100%" />
 
@@ -140,7 +143,7 @@ Anexo C. Cronología      → el ataque de un vistazo (ASCII)
 <img src="https://github-readme-stats.vercel.app/api?username=kur0s4k1&show_icons=true&theme=radical&hide_border=true&count_private=true" alt="GitHub stats" height="165" />
 <img src="https://streak-stats.demolab.com?user=kur0s4k1&theme=radical&hide_border=true" alt="Streak stats" height="165" />
 
-<img src="https://github-readme-activity-graph.vercel.app/graph?username=kur0s4k1&theme=react-dark&hide_border=true&bg_color=0d1117&color=9FEF00&line=F7931E&point=9FEF00" alt="Activity graph" width="100%" />
+<img src="assets/terminal-animation.svg" alt="Terminal animada: del reconocimiento a root" width="100%" />
 
 ---
 
