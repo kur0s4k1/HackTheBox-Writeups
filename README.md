@@ -70,6 +70,7 @@ flowchart LR
 |---|---|---|---|---|
 | **Touch** (KIOSK-042) | ![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white) | ![Fácil](https://img.shields.io/badge/F%C3%A1cil-9FEF00?style=flat-square) | Serial como contraseña → kiosk breakout (Edge → `cmd.exe`) → UDF de MySQL → **SYSTEM** | 📄 [Abrir](Machines/Windows/Facil/Touch/README.md) |
 | **Layover** (airside-ws01) | ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black) | ![Media](https://img.shields.io/badge/Media-F7931E?style=flat-square) | RDP contractor → sniffing Wi-Fi en claro → RCE en Craft CMS → CUPS LPE (`CVE-2026-34990`) → **root** | 📄 [Abrir](Machines/Linux/Media/Layover/README.md) |
+| **Puppet** (PUPPET-PM01) | ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black) | ![Media](https://img.shields.io/badge/Media-F7931E?style=flat-square) | FTP anónimo → Sliver C2 → PrintNightmare → Puppet code injection → DC01 → **SharpDPAPI** | 📄 [Abrir](Machines/Linux/Media/Puppet/README.md) |
 
 <details>
 <summary>💣 <b>Touch (KIOSK-042)</b> — Kiosk breakout → SYSTEM vía MySQL UDF</summary>
