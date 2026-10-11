@@ -243,7 +243,7 @@ HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
 
 ![Claves de registro Point and Print y LocalAccountTokenFilterPolicy](screenshots/06_regkeys_pointandprint.png)
 
-> **Análisis técnico:** pese a que `Restricted=1` y `TrustedServers=0` (endurecimiento parcial), **`RestrictDriverInstallationToAdministrators=0`** anula la mitigación de CVE-2021-34527 (el parche original solo aplicaba este valor si `Restricted=1` **y** `TrustedServers=1`). Es decir, el host **sigue siendo vulnerable** porque la clave de endurecimiento clave está a `0`. `LocalAccountTokenFilterPolicy=1` permite además usar cuentas locales administrativas de forma remota con token completo — útil para el pivote posterior (pivote por `PsExec`/`WMI` con credenciales locales).
+> **Análisis técnico:** `RestrictDriverInstallationToAdministrators=0` permite la instalación de controladores de impresión por usuarios que no son administradores, según la [política documentada por Microsoft](https://learn.microsoft.com/windows/client-management/mdm/policy-csp-printers#restrictdriverinstallationtoadministrators). `Restricted=1` y `TrustedServers=0` no bastan por sí solos para concluir que la instalación esté protegida. Estas claves fueron una **pista de configuración**; la prueba decisiva de explotación es el nuevo beacon como `NT AUTHORITY\SYSTEM` de la sección siguiente. `LocalAccountTokenFilterPolicy=1` afecta al filtrado remoto de tokens de cuentas locales administrativas, pero no es un requisito demostrado para este paso de PrintNightmare.
 
 ### 2.4 PrintNightmare (CVE-2021-34527) → SYSTEM
 
@@ -561,7 +561,7 @@ Documentar lo que **no** funcionó es lo más valioso metodológicamente.
    Primer reflejo en un beacon `Medium IL`: intentar `GodPotato`/`SweetPotato`/`JuicyPotato`. **Falla** porque el token no tiene `SeImpersonatePrivilege` (confirmado en `whoami /priv`). *Conclusión: cuando no hay privilegios impersonables, hay que buscar un fallo de **servicio** (spooler), no de token.*
 
 2. **Endurecimiento parcial de `Point and Print` despista.**
-   `Restricted=1` y `TrustedServers=0` parece "parcheado", pero **`RestrictDriverInstallationToAdministrators=0`** reabre CVE-2021-34527. *Lección: no basta con leer una clave; hay que conocer la lógica del parche (los tres valores deben estar en la postura segura).*
+   `Restricted=1` no demuestra por sí solo una configuración segura: **`RestrictDriverInstallationToAdministrators=0`** permite la instalación de controladores por usuarios no administradores. *Lección: una clave de registro orienta la hipótesis; el beacon SYSTEM confirma que la explotación funcionó en este host.*
 
 3. **Sesión `0389278b` "ya SYSTEM en DC01" — no se debe asumir.**
    Había una sesión heredada como SYSTEM en DC01. Fiarse de ella es un error: puede pertenecer a otro operador, estar sin *check-in* o caducar. La operación correcta es **establecer nuestro propio acceso** (PrintNightmare → manifest → nuevo beacon). *Lección: en C2 multi-operador, verificar autoría y frescura de cada sesión.*

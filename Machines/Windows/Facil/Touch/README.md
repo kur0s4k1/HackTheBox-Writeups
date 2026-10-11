@@ -242,7 +242,7 @@ whoami; hostname; type C:\Users\Kios****\Desktop\user.txt
 ![Lectura de user.txt](screenshots/06_02_user_flag.png)
 *Fig. 6.2 — `type C:\Users\Kios****\Desktop\user.txt` mostrando la flag de usuario. **Pista:** el prompt `C:\Users\Kios****\Downloads>` y que la ubicación de la flag corresponde al `user.txt` de la instancia activa. El valor de la flag aparece **enmascarado en el texto y redactado (censurado) en la captura** para esta versión pública.*
 
-La consola interactiva del shell en el lado del atacante (`nc -lvnp 9001`) se conservó como **transcripción textual** de la sesión (comandos y salidas íntegras, incluida la lectura de `user.txt`); las capturas gráficas de la consola del kiosco son las Figs. 6.1–6.2.
+Este documento reproduce los comandos y las salidas relevantes del listener `nc -lvnp 9001`, con la flag enmascarada. El repositorio no adjunta un archivo independiente con la transcripción completa del listener; las capturas gráficas disponibles de esta etapa son las Figs. 6.1–6.2.
 
 ---
 
@@ -339,7 +339,7 @@ Get-Item "C:\MySQL\lib\plugin\lib_mysqludf_sys.dll" | fl Length
 **Evidencia visual:**
 
 ![Prueba de ejecución del UDF sys_eval en la consola del objetivo](screenshots/08_01_sys_eval_ejecucion.png)
-*Fig. 8.1 — Consola PowerShell del kiosco (`...\Downloads\cmd.exe - powershell`) ejecutando `mysql.exe` con una prueba de la función UDF: la llamada a `sys_eval` devuelve `ok`, confirmando que la DLL depositada en `C:\MySQL\lib\plugin` ejecuta código en el host. La captura se conserva íntegra: la porción inferior muestra un intento posterior fallido de relanzar el payload de la reverse shell, documentado en el Anexo A. La confirmación `SELECT sys_eval('whoami')` → `nt authority\system` del bloque anterior consta en la transcripción de la consola de post-explotación (listener `nc` del atacante); esa salida concreta no llegó a capturarse gráficamente y el objetivo ya está desactivado.*
+*Fig. 8.1 — Consola PowerShell del kiosco (`...\Downloads\cmd.exe - powershell`) ejecutando `mysql.exe` con una prueba de la función UDF: la llamada a `sys_eval` devuelve `ok`, confirmando ejecución de comandos mediante la DLL. La porción inferior muestra un intento posterior fallido de relanzar la reverse shell, documentado en el Anexo A. El `whoami` como `nt authority\system` se presenta en el bloque de salida anterior, pero no aparece en esta captura ni hay un archivo de transcripción del listener adjunto al repositorio.*
 
 ---
 
@@ -374,7 +374,7 @@ Resultado: `C:UsersAdministratorDesktop␍oot.txt` → comando inválido → sal
 
 **Root flag:** `52c311d2****`
 
-> **Nota de evidencia.** La lectura de `root.txt` se ejecutó en la misma sesión interactiva de post-explotación (listener `nc` del atacante) que el privesc de la sección 8: la salida `52c311d2****` del bloque anterior procede de la transcripción de esa consola en vivo. La ventana del listener del atacante no se capturó gráficamente y el objetivo ya está desactivado para regenerarla; los comandos y salidas íntegros de esa sesión se conservan en la transcripción citada en la sección 6.
+> **Nota de evidencia.** El bloque anterior reproduce la lectura de `root.txt` anotada durante la sesión interactiva del listener `nc`. La ventana del listener no se capturó y el repositorio no incluye su transcripción original; en esta versión pública la salida puede revisarse como texto del write-up, pero no verificarse de forma independiente con una captura o un log adjunto.
 
 ---
 
