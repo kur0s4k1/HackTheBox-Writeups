@@ -7,6 +7,7 @@ Esta carpeta contiene los writeups de las máquinas Linux con dificultad **Media
 | Máquina | Estado | Writeup |
 |---------|--------|---------|
 | [Layover](Layover/README.md) | ✅ Completada | [Ver writeup](Layover/README.md) |
+| [Stream](Stream/README.md) | ✅ Completada | [Ver writeup](Stream/README.md) |
 
 ---
 

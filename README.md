@@ -15,9 +15,9 @@
 <img src="https://readme-typing-svg.demolab.com/?font=Fira+Code:wght@500&size=22&pause=1000&color=F7931E&center=true&vCenter=true&width=640&lines=Recon+%E2%86%92+Foothold+%E2%86%92+Pivoting+%E2%86%92+Root;Assumed+Breach+%C2%B7+Web+%C2%B7+Active+Directory+%C2%B7+Post-explotaci%C3%B3n;Writeups+reales%3A+con+fallos%2C+pistas+y+evidencia;Cada+flag+tiene+su+historia" alt="Typing SVG" />
 
 [![HackTheBox](https://img.shields.io/badge/HackTheBox-Writeups-9FEF00?style=for-the-badge&logo=hackthebox&logoColor=white)](https://www.hackthebox.com/)
-[![Máquinas](https://img.shields.io/badge/m%C3%A1quinas_documentadas-2-9FEF00?style=for-the-badge&logo=hackthebox&logoColor=white)](#-m%C3%A1quinas)
+[![Máquinas](https://img.shields.io/badge/m%C3%A1quinas_documentadas-3-9FEF00?style=for-the-badge&logo=hackthebox&logoColor=white)](#-m%C3%A1quinas)
 [![Pro Labs](https://img.shields.io/badge/Pro_Labs_documentados-1-F7931E?style=for-the-badge&logo=hackthebox&logoColor=white)](#-pro-labs)
-[![Flags](https://img.shields.io/badge/flags_capturadas-4%20%2F%204-F7931E?style=for-the-badge&logo=hackthebox&logoColor=white)](#-m%C3%A1quinas)
+[![Flags](https://img.shields.io/badge/flags_capturadas-6%20%2F%206-F7931E?style=for-the-badge&logo=hackthebox&logoColor=white)](#-m%C3%A1quinas)
 [![Metodología](https://img.shields.io/badge/enfoque-metodolog%C3%ADa%20%2B%20pistas-2159D6?style=for-the-badge&logo=target&logoColor=white)](#-c%C3%B3mo-est%C3%A1-escrito-cada-writeup)
 [![Visitas](https://komarev.com/ghpvc/?username=kur0s4k1&label=visitas&color=F7931E&style=flat-square)](https://github.com/kur0s4k1)
 
@@ -71,6 +71,7 @@ flowchart LR
 |---|---|---|---|---|
 | **Touch** (KIOSK-042) | ![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white) | ![Fácil](https://img.shields.io/badge/F%C3%A1cil-9FEF00?style=flat-square) | Serial como contraseña → kiosk breakout (Edge → `cmd.exe`) → UDF de MySQL → **SYSTEM** | 📄 [Abrir](Machines/Windows/Facil/Touch/README.md) |
 | **Layover** (airside-ws01) | ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black) | ![Media](https://img.shields.io/badge/Media-F7931E?style=flat-square) | RDP contractor → sniffing Wi-Fi en claro → RCE en Craft CMS → CUPS LPE (`CVE-2026-34990`) → **root** | 📄 [Abrir](Machines/Linux/Media/Layover/README.md) |
+| **Stream** (stream) | ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black) | ![Media](https://img.shields.io/badge/Media-F7931E?style=flat-square) | Actuator/heapdump → credenciales ClickHouse → XXE (`lxml`) → SSH → ClickHouse `file()` + timer root → **root** | 📄 [Abrir](Machines/Linux/Media/Stream/README.md) |
 
 <details>
 <summary>💣 <b>Touch (KIOSK-042)</b> — Kiosk breakout → SYSTEM vía MySQL UDF</summary>
@@ -99,6 +100,21 @@ Entorno corporativo de aeropuerto sobre Linux. Host de paso (`airside-ws01`) con
 6. **Escalada a root.** **CUPS 2.4.16** (`CVE-2026-34990`): fuga del token de autenticación local de `cupsd` vía servidor IPP malicioso + escritura arbitraria con `device-uri` `file://` sobre `/etc/sudoers.d/` → `root.txt`.
 
 📄 Writeup completo: [Machines/Linux/Media/Layover](Machines/Linux/Media/Layover/README.md)
+
+</details>
+
+<details>
+<summary>🛫 <b>Stream</b> — Actuator/heapdump → XXE → SSH → ClickHouse file() + timer root</summary>
+
+Servidor Linux que expone un pipeline de datos aeroportuarios (**Kafka → parser → ClickHouse**) con una API de ingesta AIDX (FastAPI, `:8081`) y una pasarela Spring Boot tras nginx (`:80`).
+
+1. **Fuga de secretos.** Spring Boot Actuator expuesto → `GET /actuator/heapdump` → `strings` → credenciales del usuario ClickHouse `svc_events`.
+2. **XXE (CWE-611).** El *worker* de parseo construye el parser `lxml` con `load_dtd=True, resolve_entities=True`. El resultado del parseo se **persiste en ClickHouse** → la entidad resuelta queda **consultable** (canal *in-band*): se leen ficheros locales arbitrarios del servicio.
+3. **Credenciales → SSH.** Vía XXE se lee `server.properties` de Kafka → password SASL del usuario `svc_infra`, **reutilizada** como cuenta del sistema → **SSH** (foothold).
+4. **Superficie de escalada.** `user.txt` vive en el home de `martin_cole` (accesible sólo por root/grupo) → el objetivo pasa a ser root. El *timer* **`aidx-dlq-drainer`** ejecuta cada 2 min, **como root**, un formateador alojado en `clickhouse/user_files/`.
+5. **Root.** El usuario `default` de ClickHouse tiene el privilegio **`FILE`** → `INSERT INTO TABLE FUNCTION file(...)` **sobrescribe** el formateador → inyectando un mensaje en el **DLQ** (root tag inválido) el drainer root lo ejecuta → **root**.
+
+📄 Writeup completo: [Machines/Linux/Media/Stream](Machines/Linux/Media/Stream/README.md)
 
 </details>
 
