@@ -16,6 +16,7 @@
 
 [![HackTheBox](https://img.shields.io/badge/HackTheBox-Writeups-9FEF00?style=for-the-badge&logo=hackthebox&logoColor=white)](https://www.hackthebox.com/)
 [![Máquinas](https://img.shields.io/badge/m%C3%A1quinas_documentadas-2-9FEF00?style=for-the-badge&logo=hackthebox&logoColor=white)](#-m%C3%A1quinas)
+[![Pro Labs](https://img.shields.io/badge/Pro_Labs_documentados-1-F7931E?style=for-the-badge&logo=hackthebox&logoColor=white)](#-pro-labs)
 [![Flags](https://img.shields.io/badge/flags_capturadas-4%20%2F%204-F7931E?style=for-the-badge&logo=hackthebox&logoColor=white)](#-m%C3%A1quinas)
 [![Metodología](https://img.shields.io/badge/enfoque-metodolog%C3%ADa%20%2B%20pistas-2159D6?style=for-the-badge&logo=target&logoColor=white)](#-c%C3%B3mo-est%C3%A1-escrito-cada-writeup)
 [![Visitas](https://komarev.com/ghpvc/?username=kur0s4k1&label=visitas&color=F7931E&style=flat-square)](https://github.com/kur0s4k1)
@@ -70,7 +71,6 @@ flowchart LR
 |---|---|---|---|---|
 | **Touch** (KIOSK-042) | ![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white) | ![Fácil](https://img.shields.io/badge/F%C3%A1cil-9FEF00?style=flat-square) | Serial como contraseña → kiosk breakout (Edge → `cmd.exe`) → UDF de MySQL → **SYSTEM** | 📄 [Abrir](Machines/Windows/Facil/Touch/README.md) |
 | **Layover** (airside-ws01) | ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black) | ![Media](https://img.shields.io/badge/Media-F7931E?style=flat-square) | RDP contractor → sniffing Wi-Fi en claro → RCE en Craft CMS → CUPS LPE (`CVE-2026-34990`) → **root** | 📄 [Abrir](Machines/Linux/Media/Layover/README.md) |
-| **Puppet** (PUPPET-PM01) | ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black) | ![Media](https://img.shields.io/badge/Media-F7931E?style=flat-square) | FTP anónimo → Sliver C2 → PrintNightmare → Puppet code injection → DC01 → **SharpDPAPI** | 📄 [Abrir](Machines/Linux/Media/Puppet/README.md) |
 
 <details>
 <summary>💣 <b>Touch (KIOSK-042)</b> — Kiosk breakout → SYSTEM vía MySQL UDF</summary>
@@ -99,6 +99,41 @@ Entorno corporativo de aeropuerto sobre Linux. Host de paso (`airside-ws01`) con
 6. **Escalada a root.** **CUPS 2.4.16** (`CVE-2026-34990`): fuga del token de autenticación local de `cupsd` vía servidor IPP malicioso + escritura arbitraria con `device-uri` `file://` sobre `/etc/sudoers.d/` → `root.txt`.
 
 📄 Writeup completo: [Machines/Linux/Media/Layover](Machines/Linux/Media/Layover/README.md)
+
+</details>
+
+---
+
+## 🧪 Pro Labs
+
+Entornos **multi-máquina** (Pro Labs / Mini Labs) documentados como **engagement de Red Team completo**: operación vía **C2**, **Active Directory**, pivoting y post-explotación. Organizados **por dificultad** en tres niveles.
+
+| Nivel | Carpeta | Descripción |
+|:--:|---|---|
+| 🟢 **Básico** | [`Pro-Labs/Basico/`](Pro-Labs/Basico) | Cadenas cortas (1–2 hosts), técnicas fundamentales, menor profundidad de pivoting |
+| 🟠 **Intermedio** | [`Pro-Labs/Intermedio/`](Pro-Labs/Intermedio) | Entornos AD híbridos, C2, movimiento lateral, 2–4 hosts |
+| 🔴 **Avanzado** | [`Pro-Labs/Avanzado/`](Pro-Labs/Avanzado) | Bosques múltiples, evasión, cadenas largas y operación compleja |
+
+| Lab | Nivel | Hosts | C2 | Cadena de ataque | Writeup |
+|:--|:--:|:--|:--:|:--|:--:|
+| **Puppet** | 🔴 Avanzado | `PUPPET-PM01` · `FILE01` · `DC01` | Sliver | FTP anónimo → Sliver C2 → PrintNightmare → Puppet code injection → DC01 → **SharpDPAPI** | 📄 [Abrir](Pro-Labs/Avanzado/Puppet/README.md) |
+
+> Índice completo de Pro Labs (niveles, criterio de clasificación y estructura): [`Pro-Labs/README.md`](Pro-Labs/README.md)
+
+<details>
+<summary>🎯 <b>Puppet</b> — Sliver C2 → PrintNightmare → Puppet Code Execution → DC01</summary>
+
+Mini Pro Lab (Red Team Operator I) diseñado para practicar operaciones de **C2 en un entorno AD híbrido**. Se parte de un **beacon Sliver ya activo** en `FILE01` y la cadena incluye explotación de PrintNightmare, pivote vía SSH y movimiento lateral usando Puppet.
+
+1. **Acceso inicial (FTP + Sliver).** FTP anónimo en `10.13.38.33` entrega configuración del cliente Sliver (`red_127.0.0.1.cfg`) y el binario `sliver-client_linux`. Se establece un túnel con `socat` hacia el C2 interno (`31337`) y se conecta el cliente Sliver.
+2. **Beacon en FILE01.** El beacon inicial ya corre como `svc_puppet_win_t0` en `FILE01`. Se usa para enumeración y **escalada a SYSTEM** vía **PrintNightmare (CVE-2021-34527)** en el servicio de impresión.
+3. **Dump de credenciales.** Con SYSTEM en FILE01 se extraen credenciales de LSASS (Mimikatz/sekurlsa). Se obtienen credenciales válidas para `svc_puppet_lin_t1` (SSH key en DC01).
+4. **Pivote a PUPPET (Linux).** Se descarga la clave SSH privada de `svc_puppet_lin_t1` desde `\\dc01.puppet.vl\it\.ssh\ed25519`, se crackea el passphrase (john + rockyou), y se conecta vía SSH a `172.16.40.200` (PUPPET-PM01).
+5. **Escalada a root en PUPPET.** Se usa **Puppet code injection** (GTFOBins: `puppet apply` con manifest malicioso) para ejecutar comandos como root.
+6. **Movimiento lateral a DC01.** En el Puppet Master se crea un manifest que ejecuta `puppet-update.exe` (Sliver implant) en `DC01` cuando el agente Puppet hace check-in. Nuevo beacon en DC01 como `svc_puppet_win_t0`.
+7. **Flag final.** En DC01 se usa **SharpDPAPI** para decryptar credenciales DPAPI del Task Scheduler. La flag es la **contraseña de `PUPPET\root`**.
+
+📄 Writeup completo: [Pro-Labs/Avanzado/Puppet](Pro-Labs/Avanzado/Puppet/README.md)
 
 </details>
 
